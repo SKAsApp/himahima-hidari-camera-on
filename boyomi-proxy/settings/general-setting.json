@@ -1,0 +1,5 @@
+{
+	"listenPort": 15080,
+	"boyomiHost": "localhost",
+	"boyomiPort": "40080"
+}
