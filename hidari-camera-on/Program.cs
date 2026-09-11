@@ -1,5 +1,8 @@
 // Copilot作成
 using System.Globalization;
+using System.Text.Encodings.Web;
+using System.Text.Json;
+using System.Text.Unicode;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.Options;
@@ -42,7 +45,15 @@ try
 	builder.Services.AddSingleton<ObsWebSocketClient>();
 	builder.Services.AddSingleton<CameraTriggerService>();
 	builder.Services.AddSingleton<ApplicationVersionService>();
-	builder.Services.AddControllers( );
+	builder.Services.AddControllers( ).AddJsonOptions(options =>
+	{
+		options.JsonSerializerOptions.Encoder = JavaScriptEncoder.Create(UnicodeRanges.All);
+		options.JsonSerializerOptions.WriteIndented = true;
+		options.JsonSerializerOptions.IndentCharacter = '\t';
+		options.JsonSerializerOptions.IndentSize = 1;
+		options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+		options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
+	});
 	builder.Services.Configure<FormOptions>(options => options.MultipartBodyLengthLimit = serverSettings.MaximumRequestBodyBytes);
 	SecuritySettings securitySettings = builder.Configuration.GetSection("Security").Get<SecuritySettings>() ?? throw new InvalidOperationException("Security設定を読み込めません。");
 	builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy.WithOrigins(securitySettings.AllowedOrigins.ToArray( )).WithMethods("POST", "OPTIONS").WithHeaders("Authorization", "Content-Type").SetPreflightMaxAge(TimeSpan.FromHours(1))));

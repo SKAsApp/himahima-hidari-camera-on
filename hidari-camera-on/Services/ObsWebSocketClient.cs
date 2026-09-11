@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using SyasaiHidariCamera.Models.Domain;
 using SyasaiHidariCamera.Models.Settings;
@@ -23,6 +24,9 @@ public sealed class ObsWebSocketClient
 	/// <summary>OBS WebSocket認証文字列を生成するサービス</summary>
 	private readonly ObsAuthenticationService authenticationService;
 
+	/// <summary>JSONの読み書きに使用するオプション</summary>
+	private readonly JsonSerializerOptions jsonSerializerOptions;
+
 	/// <summary>WebSocket送信を直列化するセマフォ</summary>
 	private readonly SemaphoreSlim sendSemaphore = new(1, 1);
 
@@ -40,12 +44,14 @@ public sealed class ObsWebSocketClient
 	/// </summary>
 	/// <param name="options">設定を提供するオプション</param>
 	/// <param name="tokenStore">読み込んだ秘密情報</param>
-	/// <param name="authenticationService">authenticationServiceの値</param>
-	public ObsWebSocketClient(IOptions<ObsWebSocketSettings> options, TokenStore tokenStore, ObsAuthenticationService authenticationService)
+	/// <param name="authenticationService">OBS WebSocket認証文字列を生成するサービス</param>
+	/// <param name="jsonOptions">JSONの読み書きに使用するオプション</param>
+	public ObsWebSocketClient(IOptions<ObsWebSocketSettings> options, TokenStore tokenStore, ObsAuthenticationService authenticationService, IOptions<JsonOptions> jsonOptions)
 	{
 		this.settings = options.Value;
 		this.tokenStore = tokenStore;
 		this.authenticationService = authenticationService;
+		this.jsonSerializerOptions = jsonOptions.Value.JsonSerializerOptions;
 	}
 
 	/// <summary>
@@ -147,7 +153,7 @@ public sealed class ObsWebSocketClient
 	/// <returns>非同期処理を表すタスク</returns>
 	private async Task SendEnvelopeAsync(ObsOpCode opCode, object data, CancellationToken cancellationToken)
 	{
-		byte[] bytes = JsonSerializer.SerializeToUtf8Bytes(new { op = (int)opCode, d = data });
+		byte[] bytes = JsonSerializer.SerializeToUtf8Bytes(new { op = (int)opCode, d = data }, this.jsonSerializerOptions);
 		await this.sendSemaphore.WaitAsync(cancellationToken);
 		try
 		{

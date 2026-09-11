@@ -1,5 +1,12 @@
 # hidari-camera-on　動作確認用リクエスト
 
+## 一時トークンファイル作成
+
+```sh
+printf '%s\n' 'comment-test-token' > ./token/comment-api-token.txt && printf '%s\n' 'speech-test-token' > ./token/speech-api-token.txt && printf '%s\n' 'obs-websocket-test-password' > ./token/obs-websocket-password.txt
+```
+
+
 ## 死活監視
 
 ```sh
