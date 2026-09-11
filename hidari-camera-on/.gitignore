@@ -1,0 +1,7 @@
+bin/
+obj/
+log/*.log
+token/comment-api-token.txt
+token/speech-api-token.txt
+token/obs-websocket-password.txt
+.DS_Store
