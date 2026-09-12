@@ -57,6 +57,12 @@ public sealed class ObsConnectionWorker : BackgroundService
 			}
 			catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
 			{
+				// Control-Cによる停止要求は正常終了として扱います。
+				return;
+			}
+			catch (Exception) when (stoppingToken.IsCancellationRequested)
+			{
+				// 停止処理とWebSocket受信が競合した場合の例外も正常終了として扱います。
 				return;
 			}
 			catch (Exception exception)
@@ -67,7 +73,15 @@ public sealed class ObsConnectionWorker : BackgroundService
 			{
 				this.cameraTriggerService.ResetConnectionState( );
 			}
-			await Task.Delay(TimeSpan.FromSeconds(this.settings.ReconnectIntervalSeconds), stoppingToken);
+			try
+			{
+				await Task.Delay(TimeSpan.FromSeconds(this.settings.ReconnectIntervalSeconds), stoppingToken);
+			}
+			catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+			{
+				// 再接続待機中の停止要求は正常終了として扱います。
+				return;
+			}
 		}
 	}
 

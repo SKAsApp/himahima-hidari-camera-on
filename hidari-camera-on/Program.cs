@@ -86,6 +86,10 @@ try
 	application.MapControllers( );
 	application.Run( );
 }
+catch (OperationCanceledException)
+{
+	// Control-Cによる停止要求は正常終了として扱います。
+}
 catch (Exception exception)
 {
 	Log.Fatal(exception, "アプリケーションの起動に失敗しました。　詳細：{Exception}", exception);
