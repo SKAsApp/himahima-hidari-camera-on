@@ -44,6 +44,7 @@ try
 	builder.Services.AddSingleton<ObsAuthenticationService>();
 	builder.Services.AddSingleton<ObsWebSocketClient>();
 	builder.Services.AddSingleton<CameraTriggerService>();
+	builder.Services.AddHostedService<ObsConnectionWorker>();
 	builder.Services.AddSingleton<ApplicationVersionService>();
 	builder.Services.AddControllers( ).AddJsonOptions(options =>
 	{
