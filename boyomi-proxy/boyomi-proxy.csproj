@@ -2,7 +2,7 @@
 
 	<!-- ビルド設定 -->
 	<PropertyGroup>
-		<TargetFramework>net9.0</TargetFramework>
+		<TargetFramework>net10.0</TargetFramework>
 		<Nullable>enable</Nullable>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<RootNamespace>SyasaiHidariCamera</RootNamespace>
@@ -15,27 +15,23 @@
 		<!-- デバッグ時 -->
 		<!-- <PublishReadyToRun>false</PublishReadyToRun>
 		<SelfContained>false</SelfContained>
-		<RuntimeIdentifier>win-arm64</RuntimeIdentifier>
+		<RuntimeIdentifier>osx-arm64</RuntimeIdentifier>
 		<PublishSingleFile>false</PublishSingleFile> -->
 	</PropertyGroup>
 
 	<!-- ライブラリー -->
 	<ItemGroup>
-		<!-- <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.5" /> -->
-		 <PackageReference Include="Microsoft.AspNetCore.Mvc.WebApiCompatShim" Version="2.3.0" />
-		 <PackageReference Include="InputSimulatorEx" Version="2.1.1" />
-		 <PackageReference Include="Serilog" Version="4.3.1" />
-		 <PackageReference Include="Serilog.Sinks.Console" Version="6.1.1" />
-		 <PackageReference Include="Serilog.Sinks.Debug" Version="3.0.0" />
-		 <PackageReference Include="Serilog.Sinks.File" Version="7.0.0 " />
+		<PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
+		<PackageReference Include="Serilog.Sinks.Console" Version="6.1.1" />
+		<PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
 	</ItemGroup>
 
 	<!-- 除外 -->
 	<ItemGroup>
-		<Compile Remove="settings/*" />
+		<Compile Remove="token/*" />
 	</ItemGroup>
 	<ItemGroup>
-		<None Include="settings/*" CopyToOutputDirectory="always" />
+		<None Include="token/*" CopyToOutputDirectory="always" />
 		<!-- <None Remove="documents/*" /> -->
 	</ItemGroup>
 </Project>

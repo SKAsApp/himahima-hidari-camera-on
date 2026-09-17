@@ -1,73 +1,68 @@
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
+using Serilog;
+using Serilog.Context;
 using SyasaiHidariCamera.Services;
-using SyasaiHidariCamera.Model.Setting;
-using SyasaiHidariCamera.Common;
 
 namespace SyasaiHidariCamera.Controllers;
 
 /// <summary>
-/// 棒読みちゃんへのリクエストをプロキシーし、条件に合致する文字列だったら処理を追加するコントローラー
+/// 棒読みちゃんへのリクエストをプロキシーし、hidari-camera-on（コメント処理API）にも送信する（キューに入れる）コントローラー
 /// </summary>
 [ApiController]
 [Route("/talk")]
 public class BoyomiProxyController: ControllerBase
 {
-	private readonly IHLogger logger;
+	/// <summary>棒読みちゃんクライアント</summary>
+	private readonly BoyomiClient boyomiClient;
 
-	public BoyomiProxyController(IHLogger logger)
+	/// <summary>左カメラAPI送信キュー</summary>
+	private readonly HidariCameraQueue hidariCameraQueue;
+
+	/// <summary>要求生成サービス</summary>
+	private readonly RequestFactory requestFactory;
+
+	/// <summary>
+	/// 読み上げ要求コントローラーを初期化します。
+	/// </summary>
+	/// <param name="boyomiClient">棒読みちゃんクライアント</param>
+	/// <param name="hidariCameraQueue">左カメラAPI送信キュー</param>
+	/// <param name="requestFactory">要求生成サービス</param>
+	public BoyomiProxyController(BoyomiClient boyomiClient, HidariCameraQueue hidariCameraQueue, RequestFactory requestFactory)
 	{
-		this.logger = logger;
+		this.boyomiClient = boyomiClient;
+		this.hidariCameraQueue = hidariCameraQueue;
+		this.requestFactory = requestFactory;
 	}
 
+	/// <summary>
+	/// 読み上げ要求を受け付けます。
+	/// </summary>
+	/// <param name="text">読み上げ本文</param>
+	/// <param name="cancellationToken">非同期処理の取り消しを通知するトークン</param>
+	/// <returns>棒読みちゃんの応答</returns>
 	[HttpGet(Name = "BoyomiProxy")]
-	public async Task<IActionResult> Get([FromQuery] string? text)
+	public async Task<IActionResult> GetAsync([FromQuery] string? text, CancellationToken cancellationToken)
 	{
 		string requestId = Guid.NewGuid( ).ToString("D");
-		this.logger.RequestId = requestId;
-		this.logger.LogInformation("【起動】棒読みちゃんプロキシー開始　読み上げテキスト：" + text);
-		GeneralSetting setting = Setting.GetInstance( ).SettingModel;
-		CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
-		CancellationToken cancellationToken = cancellationTokenSource.Token;
-		string trueText = text ?? "";
-		// 棒読みちゃんに転送する
-		this.logger.LogDebug("棒読みちゃん転送：http://" + setting.BoyomiHost + ":" + setting.BoyomiPort.ToString( ) + "/talk?text=" + trueText);
-		int boyomiStatusCode = 500;
-		string boyomiResponseBody = "";
-		try
+		DateTimeOffset receivedAt = DateTimeOffset.Now;
+		string actualText = text ?? string.Empty;
+		using (LogContext.PushProperty("RequestId", requestId))
 		{
-			HttpResponseMessage boyomiResponse = await new HttpRequestService().HttpAsync(HttpMethod.Get, "http://" + setting.BoyomiHost + ":" + setting.BoyomiPort.ToString( ) + "/talk?text=" + trueText, "", cancellationToken);
-			boyomiStatusCode = (int) boyomiResponse.StatusCode;
-			boyomiResponseBody = await boyomiResponse.Content.ReadAsStringAsync(cancellationToken);
+			Log.Information("棒読みちゃんプロキシー開始　読み上げ本文：{Text}", actualText);
+			// 棒読みちゃんへの要求＆hidari-camera-onへの送信キュー追加
+			Task<BoyomiResponse> boyomiTask = this.boyomiClient.TalkAsync(actualText, cancellationToken);
+			this.hidariCameraQueue.TryEnqueue(this.requestFactory.CreateCommentRequest(requestId, actualText, receivedAt));
+			BoyomiResponse response = await boyomiTask;
+			Log.Debug("棒読みちゃん応答　状態コード：{StatusCode}、応答：{ResponseBody}", response.StatusCode, response.Body);
+			// 応答
+			ContentResult contentResult = new ContentResult( )
+			{
+				StatusCode = response.StatusCode,
+				ContentType = "application/json; charset=UTF-8",
+				Content = response.Body
+			};
+			return contentResult;
 		}
-		catch (Exception e)
-		{
-			this.logger.LogException("棒読みちゃん転送中にエラーが発生しました。", e);
-		}
-		// 読み上げテキストに「左カメラON」が含まれていたら、OBSにキーを送信する
-		if (trueText == "左カメラON" || trueText == "左カメラＯＮ" || trueText == "左カメラon" || trueText == "左カメラｏｎ")
-		{
-			this.logger.LogInformation("ホットキー条件「左カメラON」検出。OBSのシーンを変更します。");
-			HotKeySendService hotKeySendService = new HotKeySendService(this.logger);
-			this.logger.LogDebug("Control＋2送出");
-			hotKeySendService.SendHotKey("obs64", "", 2);
-			// 30秒後に戻すキーを送信する
-			this.logger.LogDebug("30秒待機開始");
-			await Task.Delay(30_000);
-			this.logger.RequestId = requestId;
-			this.logger.LogInformation("30秒待機終了。OBSのシーンを変更します。");
-			this.logger.LogDebug("Control＋1送出");
-			hotKeySendService.SendHotKey("obs64", "", 1);
-		}
-		// 応答する
-		ContentResult contentResult = new ContentResult()
-		{
-			StatusCode = boyomiStatusCode,
-			ContentType = "application/json; charset=UTF-8",
-			Content = boyomiResponseBody
-		};
-		this.logger.LogDebug("応答：" + boyomiStatusCode.ToString( ) + "　" + boyomiResponseBody);
-		return contentResult;
 	}
 	
 }
